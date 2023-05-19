@@ -1,49 +1,17 @@
-from django.contrib.auth.models import AbstractUser, BaseUserManager, Group, Permission
+from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.db import models
-from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 from phonenumber_field.modelfields import PhoneNumberField
 from django_countries.fields import CountryField
 
 
-class MyUserManager(BaseUserManager):
-    """
-    A custom user manager to deal with emails as unique identifiers for auth
-    instead of usernames. The default that's used is "UserManager"
-    """
-
-    def _create_user(self, email, password, **extra_fields):
-        """
-        Creates and saves a User with the given email and password.
-        """
-        if not email:
-            raise ValueError('The Email must be set')
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
-        user.set_password(password)
-        user.save()
-        return user
-
-    def create_superuser(self, email, password, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('is_active', True)
-
-        if extra_fields.get('is_staff') is not True:
-            raise ValueError('Superuser must have is_staff=True.')
-        if extra_fields.get('is_superuser') is not True:
-            raise ValueError('Superuser must have is_superuser=True.')
-        return self._create_user(email, password, **extra_fields)
-
-
-class User(AbstractUser):
+class SchoolUser(AbstractUser):
     groups = models.ManyToManyField(
         Group,
         related_name='accounts_users',
         blank=True,
-        help_text=_(
-            'The groups this user belongs to. A user will get all permissions granted to each of their groups.'),
+        help_text=_('The groups this user belongs to. A user will get all permissions granted to each of their groups.'),
         verbose_name=_('groups'),
     )
     user_permissions = models.ManyToManyField(
@@ -59,13 +27,25 @@ class User(AbstractUser):
         ('parent', 'Parent'),
         ('admin', 'Admin'),
     )
-    email = models.EmailField(null=False, unique=True, max_length=255)
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
-    objects = MyUserManager()
-    user_type = models.PositiveSmallIntegerField(choices=ROLE_CHOICES, default=3)
-    first_name = models.CharField(_('first name'), max_length=150, null=False, blank=False)
-    last_name = models.CharField(_('last name'), max_length=150, null=False, blank=False)
+
+    username = None
+    email = models.EmailField(
+        _('Email Address'), unique=True,
+        error_messages={
+            'unique': _("A user with that email already exists."),
+        }
+    )
+    user_type = models.PositiveSmallIntegerField(
+        choices=ROLE_CHOICES, default=3
+    )
+    first_name = models.CharField(
+        _('first name'), max_length=150, null=False, blank=False
+    )
+    last_name = models.CharField(
+        _('last name'), max_length=150, null=False, blank=False
+    )
     phone_number = PhoneNumberField(null=True, blank=True)
     street_address1 = models.CharField(max_length=100, null=True, blank=True)
     street_address2 = models.CharField(max_length=100, null=True, blank=True)
@@ -104,6 +84,7 @@ class Teacher(models.Model):
     class Meta:
         verbose_name_plural = "teachers"
 
+
 class Parent(models.Model):
     MR, MRS, MS, DR, BLANK = 'Mr', 'Mrs', 'Ms', 'Dr', ''
     HONORIFIC_TITLE = (
@@ -126,10 +107,11 @@ class Parent(models.Model):
     occupation = models.CharField(max_length=255)
 
     def __str__(self):
-        return self.user.first_name + " " + self.user.last_name
-     
+        return f"{self.honorific_title} {self.user.last_name}"
+
     class Meta:
         verbose_name_plural = "parents"
+
 
 class Student(models.Model):
     BAKING, CHESS, DRAWING, MUSIC, SPORTS = 'baking', 'chess', 'drawing', 'music', 'sports'
@@ -159,12 +141,13 @@ class Student(models.Model):
     hobby = models.CharField(choices=HOBBY_CHOICES, max_length=10, blank=True, default=BAKING)
     grade_level = models.IntegerField(choices=GRADE_LEVEL, default=1)
     student_id = models.CharField(blank=False, null=False, max_length=255)
-    
+
     def __str__(self):
-        return self.first_name + " " + self.last_name
+        return f"{self.first_name} {self.last_name}"
 
     class Meta:
         verbose_name_plural = "students"
+
 
 class Admin(models.Model):
     user = models.OneToOneField(
@@ -175,9 +158,9 @@ class Admin(models.Model):
         null=False
     )
     admin_id = models.CharField(blank=False, null=False, max_length=255)
-    
+
     def __str__(self):
-        return self.user.first_name + " " + self.user.last_name
+        return f"{self.user.first_name} {self.user.last_name}"
 
 
 class Course(models.Model):
@@ -189,5 +172,3 @@ class Course(models.Model):
 
     def __str__(self):
         return self.name
-
-
