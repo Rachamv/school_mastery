@@ -1,4 +1,4 @@
-from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.contrib.auth.models import AbstractUser, BaseUserManager, Group, Permission
 from django.db import models
 from django.contrib import admin
 from django.contrib.auth import get_user_model
@@ -6,11 +6,13 @@ from django.utils.translation import gettext_lazy as _
 from phonenumber_field.modelfields import PhoneNumberField
 from django_countries.fields import CountryField
 
+
 class MyUserManager(BaseUserManager):
     """
     A custom user manager to deal with emails as unique identifiers for auth
     instead of usernames. The default that's used is "UserManager"
     """
+
     def _create_user(self, email, password, **extra_fields):
         """
         Creates and saves a User with the given email and password.
@@ -33,8 +35,24 @@ class MyUserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
         return self._create_user(email, password, **extra_fields)
-    
+
+
 class User(AbstractUser):
+    groups = models.ManyToManyField(
+        Group,
+        related_name='accounts_users',
+        blank=True,
+        help_text=_(
+            'The groups this user belongs to. A user will get all permissions granted to each of their groups.'),
+        verbose_name=_('groups'),
+    )
+    user_permissions = models.ManyToManyField(
+        Permission,
+        related_name='accounts_users',
+        blank=True,
+        help_text=_('Specific permissions for this user.'),
+        verbose_name=_('user permissions'),
+    )
     ROLE_CHOICES = (
         ('student', 'Student'),
         ('teacher', 'Teacher'),
